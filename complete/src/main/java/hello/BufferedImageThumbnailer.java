@@ -2,10 +2,12 @@ package hello;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import reactor.event.Event;
 import reactor.function.Function;
 
 import javax.imageio.ImageIO;
+
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
@@ -20,47 +22,58 @@ import java.nio.file.Path;
  */
 class BufferedImageThumbnailer implements Function<Event<Path>, Path> {
 
-  private static final ImageObserver DUMMY_OBSERVER = (img, infoflags, x, y, width, height) -> true;
+	private static final ImageObserver DUMMY_OBSERVER = new ImageObserver() {
 
-  private final Logger log = LoggerFactory.getLogger(getClass());
+		@Override
+		public boolean imageUpdate(Image arg0, int arg1, int arg2, int arg3,
+				int arg4, int arg5) {
+			return true;
+		}
+	};
 
-  private final int maxLongSide;
+	private final Logger log = LoggerFactory.getLogger(getClass());
 
-  public BufferedImageThumbnailer(int maxLongSide) {
-    this.maxLongSide = maxLongSide;
-  }
+	private final int maxLongSide;
 
-  @Override
-  public Path apply(Event<Path> ev) {
-    try {
-      Path srcPath = ev.getData();
-      Path thumbnailPath = Files.createTempFile("thumbnail", ".jpg").toAbsolutePath();
-      BufferedImage imgIn = ImageIO.read(srcPath.toFile());
+	public BufferedImageThumbnailer(int maxLongSide) {
+		this.maxLongSide = maxLongSide;
+	}
 
-      double scale;
-      if (imgIn.getWidth() >= imgIn.getHeight()) {
-        // horizontal or square image
-        scale = Math.min(maxLongSide, imgIn.getWidth()) / (double) imgIn.getWidth();
-      } else {
-        // vertical image
-        scale = Math.min(maxLongSide, imgIn.getHeight()) / (double) imgIn.getHeight();
-      }
+	@Override
+	public Path apply(Event<Path> ev) {
+		try {
+			Path srcPath = ev.getData();
+			Path thumbnailPath = Files.createTempFile("thumbnail", ".jpg")
+					.toAbsolutePath();
+			BufferedImage imgIn = ImageIO.read(srcPath.toFile());
 
-      BufferedImage thumbnailOut = new BufferedImage((int) (scale * imgIn.getWidth()),
-                                                     (int) (scale * imgIn.getHeight()),
-                                                     imgIn.getType());
-      Graphics2D g = thumbnailOut.createGraphics();
+			double scale;
+			if (imgIn.getWidth() >= imgIn.getHeight()) {
+				// horizontal or square image
+				scale = Math.min(maxLongSide, imgIn.getWidth())
+						/ (double) imgIn.getWidth();
+			} else {
+				// vertical image
+				scale = Math.min(maxLongSide, imgIn.getHeight())
+						/ (double) imgIn.getHeight();
+			}
 
-      AffineTransform transform = AffineTransform.getScaleInstance(scale, scale);
-      g.drawImage(imgIn, transform, DUMMY_OBSERVER);
-      ImageIO.write(thumbnailOut, "jpeg", thumbnailPath.toFile());
+			BufferedImage thumbnailOut = new BufferedImage(
+					(int) (scale * imgIn.getWidth()),
+					(int) (scale * imgIn.getHeight()), imgIn.getType());
+			Graphics2D g = thumbnailOut.createGraphics();
 
-      log.info("Image thumbnail now at: {}", thumbnailPath);
+			AffineTransform transform = AffineTransform.getScaleInstance(scale,
+					scale);
+			g.drawImage(imgIn, transform, DUMMY_OBSERVER);
+			ImageIO.write(thumbnailOut, "jpeg", thumbnailPath.toFile());
 
-      return thumbnailPath;
-    } catch (Exception e) {
-      throw new IllegalStateException(e.getMessage(), e);
-    }
-  }
+			log.info("Image thumbnail now at: {}", thumbnailPath);
+
+			return thumbnailPath;
+		} catch (Exception e) {
+			throw new IllegalStateException(e.getMessage(), e);
+		}
+	}
 
 }
