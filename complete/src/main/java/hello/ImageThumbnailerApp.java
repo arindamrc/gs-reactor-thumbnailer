@@ -1,11 +1,15 @@
 package hello;
 
+import static reactor.event.selector.Selectors.$;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 
+import java.util.concurrent.CountDownLatch;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.ApplicationContext;
@@ -27,12 +31,6 @@ import reactor.net.netty.tcp.NettyTcpServer;
 import reactor.net.tcp.spec.TcpServerSpec;
 import reactor.spring.context.config.EnableReactor;
 
-import java.nio.file.Path;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicReference;
-
-import static reactor.event.selector.Selectors.$;
-
 /**
  * Simple Spring Boot app to start a Reactor+Netty-based REST API server for
  * thumbnailing uploaded images.
@@ -42,7 +40,7 @@ import static reactor.event.selector.Selectors.$;
 @ComponentScan
 @EnableReactor
 public class ImageThumbnailerApp {
-
+	
 	@Bean
 	public Reactor reactor(Environment env) {
 		Reactor reactor = Reactors.reactor(env, Environment.THREAD_POOL);
@@ -70,12 +68,12 @@ public class ImageThumbnailerApp {
 	public NetServer<FullHttpRequest, FullHttpResponse> restApi(
 			Environment env, ServerSocketOptions opts, final Reactor reactor,
 			final CountDownLatch closeLatch) throws InterruptedException {
-		final AtomicReference<Path> thumbnail = new AtomicReference<>();
 
 		NetServer<FullHttpRequest, FullHttpResponse> server = new TcpServerSpec<FullHttpRequest, FullHttpResponse>(
 				NettyTcpServer.class)
 				.env(env)
-				.dispatcher("sync")
+				.listen(8080)
+				.dispatcher(Environment.RING_BUFFER)
 				.options(opts)
 				.consume(
 						new Consumer<NetChannel<FullHttpRequest, FullHttpResponse>>() {
@@ -83,50 +81,24 @@ public class ImageThumbnailerApp {
 							@Override
 							public void accept(
 									NetChannel<FullHttpRequest, FullHttpResponse> ch) {
-								
+
 								// filter requests by URI via the input Stream
 								Stream<FullHttpRequest> in = ch.in();
 
-								// serve image thumbnail to browser
 								in.filter(
 										new Function<FullHttpRequest, Boolean>() {
 
 											@Override
 											public Boolean apply(
 													FullHttpRequest req) {
-												return ImageThumbnailerRestApi.IMG_THUMBNAIL_URI
-														.equals(req.getUri());
+												return true;
 											}
 										})
 										.when(Throwable.class,
 												ImageThumbnailerRestApi
 														.errorHandler(ch))
-										.consume(
-												ImageThumbnailerRestApi
-														.serveThumbnailImage(
-																ch, thumbnail));
+										.consume(new JsonConsumer(in, ch));
 
-								// take uploaded data and thumbnail it
-								in.filter(
-										new Function<FullHttpRequest, Boolean>() {
-
-											@Override
-											public Boolean apply(
-													FullHttpRequest req) {
-												return ImageThumbnailerRestApi.THUMBNAIL_REQ_URI
-														.equals(req.getUri());
-											}
-										})
-										.when(Throwable.class,
-												ImageThumbnailerRestApi
-														.errorHandler(ch))
-										.consume(
-												ImageThumbnailerRestApi
-														.thumbnailImage(ch,
-																thumbnail,
-																reactor));
-
-								// shutdown this demo app
 								in.filter(
 										new Function<FullHttpRequest, Boolean>() {
 
@@ -136,15 +108,17 @@ public class ImageThumbnailerApp {
 												return "/shutdown".equals(req
 														.getUri());
 											}
+
 										}).consume(
 										new Consumer<FullHttpRequest>() {
 
 											@Override
 											public void accept(
-													FullHttpRequest req) {
+													FullHttpRequest arg0) {
 												closeLatch.countDown();
 											}
 										});
+
 							}
 						}).get();
 

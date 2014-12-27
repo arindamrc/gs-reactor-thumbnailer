@@ -1,71 +1,92 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-        <modelVersion>4.0.0</modelVersion>
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
 
-    <!-- <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>1.1.10.RELEASE</version>
-    </parent> -->
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>1.1.10.RELEASE</version>
+	</parent>
 
-    <groupId>org.projectreactor.examples</groupId>
-    <artifactId>gs-reactor-thumbnailer</artifactId>
-    <version>0.1.0</version>
+	<groupId>org.projectreactor.examples</groupId>
+	<artifactId>gs-reactor-thumbnailer</artifactId>
+	<version>0.1.0</version>
 
-    <properties>
-        <java.version>1.7</java.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <reactor.version>1.1.0.M3</reactor.version>
-        <spring.boot.version>1.1.10.RELEASE</spring.boot.version>
-    </properties>
+	<properties>
+		<java.version>1.7</java.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<reactor.version>1.1.5.RELEASE</reactor.version>
+		<spring.boot.version>1.1.10.RELEASE</spring.boot.version>
+		<reactor.spring>1.0.1.RELEASE</reactor.spring>
+	</properties>
 
-    <dependencies>
+	<dependencies>
 
-        <!-- Spring Boot -->
-        <dependency>
+		<!-- Spring Boot -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter</artifactId>
+			<version>${spring.boot.version}</version>
+		</dependency>
+
+		<!-- Reactor -->
+		<dependency>
+			<groupId>org.projectreactor</groupId>
+			<artifactId>reactor-net</artifactId>
+			<version>${reactor.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.projectreactor</groupId>
+			<artifactId>reactor-spring</artifactId>
+			<version>${reactor.spring}</version>
+		</dependency>
+
+
+		<!-- GraphicsMagick -->
+		<dependency>
+			<groupId>com.sharneng</groupId>
+			<artifactId>gm4java</artifactId>
+			<version>1.1.0</version>
+		</dependency>
+
+		<!-- Jackson json -->
+		<dependency>
+			<groupId>org.codehaus.jackson</groupId>
+			<artifactId>jackson-mapper-asl</artifactId>
+			<version>1.8.5</version>
+		</dependency>
+		
+		<!-- jpa support -->
+		<dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter</artifactId>
-            <version>${spring.boot.version}</version>
-        </dependency>
-
-        <!-- Reactor -->
-        <dependency>
-            <groupId>org.projectreactor</groupId>
-            <artifactId>reactor-net</artifactId>
-            <version>${reactor.version}</version>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.projectreactor.spring</groupId>
-            <artifactId>reactor-spring-context</artifactId>
-            <version>${reactor.version}</version>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
         </dependency>
 
-        <!-- GraphicsMagick -->
-        <dependency>
-            <groupId>com.sharneng</groupId>
-            <artifactId>gm4java</artifactId>
-            <version>1.1.0</version>
-        </dependency>
+	</dependencies>
 
-    </dependencies>
+	<repositories>
+		<repository>
+			<id>spring-milestones</id>
+			<url>https://repo.spring.io/libs-milestone</url>
+		</repository>
+		<repository>
+			<id>codehaus</id>
+			<url>http://repository.codehaus.org/org/codehaus</url>
+		</repository>
+	</repositories>
 
-    <repositories>
-        <repository>
-            <id>spring-milestones</id>
-            <url>https://repo.spring.io/libs-milestone</url>
-        </repository>
-    </repositories>
+	<build>
+		<plugins>
 
-    <build>
-        <plugins>
-
-            <!-- <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin> -->
-        </plugins>
-    </build>
+			<!-- <plugin> <groupId>org.springframework.boot</groupId> <artifactId>spring-boot-maven-plugin</artifactId> 
+				</plugin> -->
+		</plugins>
+	</build>
 
 </project>
 
