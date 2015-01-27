@@ -19,6 +19,6 @@
   <include resource="org/springframework/boot/logging/logback/base.xml"/>
 
   <logger name="org.projectreactor" level="error"/>
-  <logger name="hello" level="error"></logger>
+  <logger name="hello" level="info"></logger>
 
 </configuration>

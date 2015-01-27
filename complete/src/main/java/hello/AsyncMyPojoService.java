@@ -13,7 +13,7 @@ import reactor.core.composable.spec.Promises;
 import reactor.core.composable.spec.Streams;
 import reactor.function.Consumer;
 
-@Service
+//@Service
 public class AsyncMyPojoService {
 
 	private static final Logger LOG = LoggerFactory

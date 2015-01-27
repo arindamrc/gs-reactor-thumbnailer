@@ -1,13 +1,20 @@
 package hello;
 
+import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_LENGTH;
+import static io.netty.handler.codec.http.HttpHeaders.Names.CONTENT_TYPE;
+import static io.netty.handler.codec.http.HttpResponseStatus.OK;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static reactor.event.selector.Selectors.$;
 import io.netty.channel.ChannelPipeline;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
@@ -17,10 +24,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
+import com.lmax.disruptor.YieldingWaitStrategy;
+import com.lmax.disruptor.dsl.ProducerType;
+
 import reactor.core.Environment;
 import reactor.core.Reactor;
 import reactor.core.composable.Stream;
 import reactor.core.spec.Reactors;
+import reactor.event.dispatch.RingBufferDispatcher;
 import reactor.function.Consumer;
 import reactor.function.Function;
 import reactor.net.NetChannel;
@@ -35,13 +46,15 @@ import reactor.spring.context.config.EnableReactor;
  * Simple Spring Boot app to start a Reactor+Netty-based REST API server for
  * thumbnailing uploaded images.
  */
-@EnableAutoConfiguration
-@Configuration
-@ComponentScan
-@EnableReactor
+//@EnableAutoConfiguration
+//@Configuration
+//@ComponentScan
+//@EnableReactor
 public class ImageThumbnailerApp {
-	
-	@Bean
+
+	private AtomicInteger counter = new AtomicInteger(0);
+
+//	@Bean
 	public Reactor reactor(Environment env) {
 		Reactor reactor = Reactors.reactor(env, Environment.THREAD_POOL);
 
@@ -51,7 +64,7 @@ public class ImageThumbnailerApp {
 		return reactor;
 	}
 
-	@Bean
+//	@Bean
 	public ServerSocketOptions serverSocketOptions() {
 		return new NettyServerSocketOptions()
 				.pipelineConfigurer(new Consumer<ChannelPipeline>() {
@@ -64,7 +77,7 @@ public class ImageThumbnailerApp {
 				});
 	}
 
-	@Bean
+//	@Bean
 	public NetServer<FullHttpRequest, FullHttpResponse> restApi(
 			Environment env, ServerSocketOptions opts, final Reactor reactor,
 			final CountDownLatch closeLatch) throws InterruptedException {
@@ -73,14 +86,23 @@ public class ImageThumbnailerApp {
 				NettyTcpServer.class)
 				.env(env)
 				.listen(8080)
-				.dispatcher(Environment.RING_BUFFER)
+				.dispatcher(
+						new RingBufferDispatcher("EventLoop", 8192,
+								new Consumer<Throwable>() {
+
+									@Override
+									public void accept(Throwable arg0) {
+										throw new RuntimeException(arg0);
+									}
+								}, ProducerType.SINGLE,
+								new YieldingWaitStrategy()))
 				.options(opts)
 				.consume(
 						new Consumer<NetChannel<FullHttpRequest, FullHttpResponse>>() {
 
 							@Override
 							public void accept(
-									NetChannel<FullHttpRequest, FullHttpResponse> ch) {
+									final NetChannel<FullHttpRequest, FullHttpResponse> ch) {
 
 								// filter requests by URI via the input Stream
 								Stream<FullHttpRequest> in = ch.in();
@@ -97,7 +119,32 @@ public class ImageThumbnailerApp {
 										.when(Throwable.class,
 												ImageThumbnailerRestApi
 														.errorHandler(ch))
-										.consume(new JsonConsumer(in, ch));
+										.consume(
+												new Consumer<FullHttpRequest>() {
+
+													@Override
+													public void accept(
+															FullHttpRequest arg0) {
+														DefaultFullHttpResponse resp = new DefaultFullHttpResponse(
+																HTTP_1_1, OK);
+
+														byte[] bytes = "DONE"
+																.getBytes(StandardCharsets.UTF_8);
+														resp.content()
+																.writeBytes(
+																		bytes);
+
+														resp.headers().set(
+																CONTENT_TYPE,
+																"text/plain");
+														resp.headers()
+																.set(CONTENT_LENGTH,
+																		resp.content()
+																				.readableBytes());
+														counter.incrementAndGet();
+														ch.sendAndForget(resp);
+													}
+												});
 
 								in.filter(
 										new Function<FullHttpRequest, Boolean>() {
@@ -119,6 +166,43 @@ public class ImageThumbnailerApp {
 											}
 										});
 
+								in.filter(
+										new Function<FullHttpRequest, Boolean>() {
+
+											@Override
+											public Boolean apply(
+													FullHttpRequest req) {
+												return "/print".equals(req
+														.getUri());
+											}
+
+										}).consume(
+										new Consumer<FullHttpRequest>() {
+
+											@Override
+											public void accept(
+													FullHttpRequest arg0) {
+												DefaultFullHttpResponse resp = new DefaultFullHttpResponse(
+														HTTP_1_1, OK);
+
+												byte[] bytes = String
+														.valueOf(
+																counter.intValue())
+														.getBytes(
+																StandardCharsets.UTF_8);
+												resp.content()
+														.writeBytes(bytes);
+
+												resp.headers().set(
+														CONTENT_TYPE,
+														"text/plain");
+												resp.headers()
+														.set(CONTENT_LENGTH,
+																resp.content()
+																		.readableBytes());
+												ch.sendAndForget(resp);
+											}
+										});
 							}
 						}).get();
 
@@ -127,7 +211,7 @@ public class ImageThumbnailerApp {
 		return server;
 	}
 
-	@Bean
+//	@Bean
 	public CountDownLatch closeLatch() {
 		return new CountDownLatch(1);
 	}
